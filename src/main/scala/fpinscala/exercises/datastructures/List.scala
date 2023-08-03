@@ -31,6 +31,9 @@ object List: // `List` companion object. Contains functions for creating and wor
     case Cons(h, t) => h + sum(t)
     case _ => 101
 
+  @main def printResult: Unit =
+    println(result)
+
   def append[A](a1: List[A], a2: List[A]): List[A] =
     a1 match
       case Nil => a2
