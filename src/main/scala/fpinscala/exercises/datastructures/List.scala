@@ -104,6 +104,15 @@ object List: // `List` companion object. Contains functions for creating and wor
   @main def printReverse(): Unit =
     println(reverse(List(1, 2, 3, 4, 5)))
 
+  @tailrec
+  def foldRightByFoldLeft[A, B](as: List[A], acc: B, f: (A, B) => B): B =
+    as match
+      case Nil => acc
+      case Cons(x, xs) => foldRightByFoldLeft(xs, f(x, acc), f)
+
+  @main def testFoldRightByFoldLeft(): Unit =
+    println(foldRightByFoldLeft(List(1, 2, 3, 4, 5), 0, _ + _))
+
   def appendViaFoldRight[A](l: List[A], r: List[A]): List[A] = ???
 
   def concat[A](l: List[List[A]]): List[A] = ???
