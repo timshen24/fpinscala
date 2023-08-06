@@ -36,10 +36,11 @@ object List: // `List` companion object. Contains functions for creating and wor
   @main def printResult: Unit =
     println(result)
 
-  def append[A](a1: List[A], a2: List[A]): List[A] =
+  def append[A](a1: List[A], a2: List[A]): List[A] = {
     a1 match
       case Nil => a2
-      case Cons(h,t) => Cons(h, append(t, a2))
+      case Cons(h, t) => Cons(h, append(t, a2))
+  }
 
   def foldRight[A,B](as: List[A], acc: B, f: (A, B) => B): B = // Utility functions
     as match
@@ -54,7 +55,7 @@ object List: // `List` companion object. Contains functions for creating and wor
 
   def tail[A](l: List[A]): List[A] = l match
     case List.Nil => sys.error("tail on Nil")
-    case List.Cons(h, t) => t
+    case List.Cons(_, t) => t
 
   def setHead[A](l: List[A], h: A): List[A] =
     l match
@@ -104,33 +105,73 @@ object List: // `List` companion object. Contains functions for creating and wor
   @main def printReverse(): Unit =
     println(reverse(List(1, 2, 3, 4, 5)))
 
-  @tailrec
-  def foldRightByFoldLeft[A, B](as: List[A], acc: B, f: (A, B) => B): B =
-    as match
-      case Nil => acc
-      case Cons(x, xs) => foldRightByFoldLeft(xs, f(x, acc), f)
+  def foldRightByFoldLeft[A, B](as: List[A], acc: B, f: (A, B) => B): B = {
+//    as match
+//      case Nil => acc
+//      case Cons(x, xs) => foldRightByFoldLeft(xs, f(x, acc), f)
+    foldLeft(reverse(as), acc, (b, a) => f(a, b))
+  }
 
   @main def testFoldRightByFoldLeft(): Unit =
     println(foldRightByFoldLeft(List(1, 2, 3, 4, 5), 0, _ + _))
 
-  def appendViaFoldRight[A](l: List[A], r: List[A]): List[A] = ???
+  def appendViaFoldRight[A](l: List[A], r: List[A]): List[A] = {
+    foldRight(l, r, Cons(_, _))
+  }
 
-  def concat[A](l: List[List[A]]): List[A] = ???
+  def concat[A](l: List[List[A]]): List[A] = {
+    foldLeft(l, Nil, (acc: List[A], l: List[A]) => appendViaFoldRight(acc, l))
+  }
 
-  def incrementEach(l: List[Int]): List[Int] = ???
+  @main def printConcat(): Unit = {
+    println(concat(List(List(1, 2, 3), List(100, 200, 300))))
+  }
 
-  def doubleToString(l: List[Double]): List[String] = ???
+  def incrementEach(l: List[Int]): List[Int] = {
+    foldRight(l, Nil: List[Int], (h,t) => Cons(h+1,t))
+  }
 
-  def map[A, B](l: List[A], f: A => B): List[B] = ???
+  def doubleToString(l: List[Double]): List[String] = {
+    foldRight(l, Nil: List[String], (a, l) => Cons(a.toString, l))
+  }
 
-  def filter[A](as: List[A], f: A => Boolean): List[A] = ???
+  def map[A, B](l: List[A], f: A => B): List[B] = {
+    foldRight(l, Nil:List[B], (h, t) => Cons(f(h), t))
+  }
 
-  def flatMap[A, B](as: List[A], f: A => List[B]): List[B] = ???
+  def filter[A](as: List[A], f: A => Boolean): List[A] = {
+    foldRight(as, Nil: List[A], (h, t) => if f(h) then Cons(h, t) else t)
+  }
 
-  def filterViaFlatMap[A](as: List[A], f: A => Boolean): List[A] = ???
+  def flatMap[A, B](as: List[A], f: A => List[B]): List[B] = {
+    foldRight(as, Nil: List[B], (h, t) => foldRight(f(h), t, Cons(_, _)))
+  }
 
-  def addPairwise(a: List[Int], b: List[Int]): List[Int] = ???
+  @main def printFlatMap =
+    println(flatMap(List(1, 4, 7), i => List(i, i + 1, i + 2)))
 
+  def filterViaFlatMap[A](as: List[A], f: A => Boolean): List[A] = {
+    flatMap(as, (a: A) => if f(a) then List(a) else List.Nil)
+  }
+
+  def addPairwise(a: List[Int], b: List[Int]): List[Int] = {
+    (a, b) match
+      case (_, Nil) => Nil
+      case (Nil, _) => Nil
+      case (Cons(h1, t1), Cons(h2, t2)) => Cons(h1 + h2, addPairwise(t1, t2))
+  }
   // def zipWith - TODO determine signature
 
-  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = ???
+  @annotation.tailrec
+  def startsWith[A](l: List[A], prefix: List[A]): Boolean = {
+    (l, prefix) match
+      case (_, Nil) => true
+      case (Cons(h, t), Cons(h2, t2)) if h == h2 => startsWith(t, t2)
+      case _ => false
+  }
+
+  @annotation.tailrec
+  def hasSubsequence[A](sup: List[A], sub: List[A]): Boolean = sup match
+    case Nil => sub == Nil
+    case _ if startsWith(sup, sub) => true
+    case Cons(_,t) => hasSubsequence(t, sub)
