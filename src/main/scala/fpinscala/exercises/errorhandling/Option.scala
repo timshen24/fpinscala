@@ -1,21 +1,28 @@
 package fpinscala.exercises.errorhandling
 
 // Hide std library `Option` since we are writing our own in this chapter
-import scala.{Option as _, Some as _, None as _}
+import scala.{None as _, Option as _, Some as _}
 
 enum Option[+A]:
   case Some(get: A)
   case None
 
-  def map[B](f: A => B): Option[B] = ???
+  def map[B](f: A => B): Option[B] = this match
+    case Some(get) => Some(f(get))
+    case None => None
 
-  def getOrElse[B>:A](default: => B): B = ???
+  def getOrElse[B>:A](default: => B): B = this match
+    case Some(get) => get
+    case None => default
 
-  def flatMap[B](f: A => Option[B]): Option[B] = ???
+  def flatMap[B](f: A => Option[B]): Option[B] =
+    this.map(f).getOrElse(None)
 
-  def orElse[B>:A](ob: => Option[B]): Option[B] = ???
+  def orElse[B>:A](ob: => Option[B]): Option[B] =
+    Some(this).getOrElse(ob)
 
-  def filter(f: A => Boolean): Option[A] = ???
+  def filter(f: A => Boolean): Option[A] =
+    if (this.map(f).getOrElse(false)) this else None
 
 object Option:
 
@@ -36,10 +43,19 @@ object Option:
     if xs.isEmpty then None
     else Some(xs.sum / xs.length)
 
-  def variance(xs: Seq[Double]): Option[Double] = ???
+  def variance(xs: Seq[Double]): Option[Double] =
+//    mean(xs).flatMap(m => mean(xs.map((_ - m) * (_ - m))))
+    for {
+      m <- mean(xs)
+      z <- mean(xs.map(x => (x - m) * (x - m)))
+    } yield z
 
-  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] = ???
+  def map2[A,B,C](a: Option[A], b: Option[B])(f: (A, B) => C): Option[C] =
+    a.flatMap(someA => b.map(someB => f(someA, someB)))
 
-  def sequence[A](as: List[Option[A]]): Option[List[A]] = ???
+  def sequence[A](as: List[Option[A]]): Option[List[A]] = {
+    as.foldRight[Option[List[A]]](Some(Nil))((a, acc) => map2(a, acc)(_ :: _))
+  }
 
-  def traverse[A, B](as: List[A])(f: A => Option[B]): Option[List[B]] = ???
+  def traverse[A, B](as: List[A])(f: A => Option[B]): Option[List[B]] =
+    as.foldRight[Option[List[B]]](Some(Nil))((a, acc) => map2(f(a), acc)(_ :: _))
