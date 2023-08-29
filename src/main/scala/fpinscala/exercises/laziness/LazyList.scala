@@ -1,5 +1,7 @@
 package fpinscala.exercises.laziness
 
+import fpinscala.exercises.laziness.LazyList.cons
+
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
 
@@ -47,11 +49,18 @@ enum LazyList[+A]:
     case Empty => None
     case Cons(h, t) => if (f(h())) Some(h()) else t().find(f)
 
-  def take(n: Int): LazyList[A] = ???
+  def take(n: Int): LazyList[A] = this match
+    case Cons(h, t) if n > 1 => cons(h(), t().take(n - 1))
+    case Cons(h, _) if n == 1 => cons(h(), Empty)
+    case _ => Empty
 
-  def drop(n: Int): LazyList[A] = ???
+  def drop(n: Int): LazyList[A] = this match
+    case Cons(_, t) if n > 0 => t().drop(n - 1)
+    case _ => Empty
 
-  def takeWhile(p: A => Boolean): LazyList[A] = ???
+  def takeWhile(p: A => Boolean): LazyList[A] = this match
+    case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
+    case _ => Empty
 
   def forAll(p: A => Boolean): Boolean = ???
 
@@ -92,3 +101,8 @@ object LazyList:
   def continuallyViaUnfold[A](a: A): LazyList[A] = ???
 
   lazy val onesViaUnfold: LazyList[Int] = ???
+
+  @main def testFunc(): Unit = {
+    println(LazyList(1, 2, 3).take(2).toListRecursive)
+    println(LazyList(1, 2, 3).takeWhile(_ < 3).toListRecursive)
+  }
