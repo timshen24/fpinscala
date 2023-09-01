@@ -1,6 +1,6 @@
 package fpinscala.exercises.laziness
 
-import fpinscala.exercises.laziness.LazyList.cons
+import fpinscala.exercises.laziness.LazyList.*
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
@@ -38,7 +38,7 @@ enum LazyList[+A]:
 
   def foldRight[B](z: => B)(f: (A, => B) => B): B = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match
-      case Cons(h,t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
+      case Cons(h, t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
       case _ => z
 
   def exists(p: A => Boolean): Boolean = 
@@ -58,15 +58,20 @@ enum LazyList[+A]:
     case Cons(_, t) if n > 0 => t().drop(n - 1)
     case _ => Empty
 
-  def takeWhile(p: A => Boolean): LazyList[A] = this match
-    case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
-    case _ => Empty
-
-  def forAll(p: A => Boolean): Boolean = {
-
+  /* foldRight里有递归了，takeWhile就肯定不用再写一遍递归 */
+  def takeWhile(p: A => Boolean): LazyList[A] = {
+    /*this match
+        case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
+        case _ => Empty*/
+    foldRight(LazyList.empty){ (a, b) => if p(a) then cons(a, b) else empty}
   }
 
-  def headOption: Option[A] = ???
+  def forAll(p: A => Boolean): Boolean = {
+    foldRight(true){(a, b) => p(a) && b}
+  }
+
+  def headOption: Option[A] =
+    foldRight(None: Option[A])((h, _) => Some(h))
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
