@@ -62,7 +62,9 @@ enum LazyList[+A]:
     case Cons(h, t) if p(h()) => cons(h(), t().takeWhile(p))
     case _ => Empty
 
-  def forAll(p: A => Boolean): Boolean = ???
+  def forAll(p: A => Boolean): Boolean = {
+
+  }
 
   def headOption: Option[A] = ???
 
