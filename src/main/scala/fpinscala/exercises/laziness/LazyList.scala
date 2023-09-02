@@ -56,7 +56,7 @@ enum LazyList[+A]:
 
   def drop(n: Int): LazyList[A] = this match
     case Cons(_, t) if n > 0 => t().drop(n - 1)
-    case _ => Empty
+    case _ => this
 
   /* foldRight里有递归了，takeWhile就肯定不用再写一遍递归 */
   def takeWhile(p: A => Boolean): LazyList[A] = {
