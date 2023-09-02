@@ -54,10 +54,10 @@ class LazyListSuite extends PropSuite:
     case n ** lazyList =>
       assertEquals(lazyList.forAll(_ != n), !lazyList.toListRecursive.contains(n))
 
-  /*
+
   test("LazyList.map")(genSmallInt ** genLazyList):
     case n ** lazyList =>
-      assertEquals(lazyList.map(_ + n).toList, lazyList.toList.map(_ + n))
+      assertEquals(lazyList.map(_ + n).toListRecursive, lazyList.toListRecursive.map(_ + n))
 
   test("LazyList.filter")(genSmallInt ** genLazyList):
     case n ** lazyList =>
@@ -70,7 +70,6 @@ class LazyListSuite extends PropSuite:
   test("LazyList.flatMap")(genSmallInt ** genLazyList):
     case n ** lazyList =>
       assertEquals(lazyList.flatMap(a => LazyList(a + n)).toList, lazyList.toList.flatMap(a => List(a + n)))
-   */
 
   test("LazyList.ones")(genMidInt): n =>
     assertEquals(ones.take(n).toListRecursive, List.fill(n)(1))

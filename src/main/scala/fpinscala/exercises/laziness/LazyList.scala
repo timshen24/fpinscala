@@ -36,6 +36,8 @@ enum LazyList[+A]:
     go(this)
   }
 
+  def toList: List[A] = toListTailRecClean
+
   def foldRight[B](z: => B)(f: (A, => B) => B): B = // The arrow `=>` in front of the argument type `B` means that the function `f` takes its second argument by name and may choose not to evaluate it.
     this match
       case Cons(h, t) => f(h(), t().foldRight(z)(f)) // If `f` doesn't evaluate its second argument, the recursion never occurs.
@@ -75,6 +77,18 @@ enum LazyList[+A]:
 
   // 5.7 map, filter, append, flatmap using foldRight. Part of the exercise is
   // writing your own function signatures.
+  def map[B](f: A => B): LazyList[B] =
+    foldRight(empty[B])((a, b) => cons(f(a), b))
+
+  def filter(p: A => Boolean): LazyList[A] = {
+    foldRight(empty[A])((a, b) => if p(a) then cons(a, b) else b)
+  }
+
+  def append[A2 >: A](that: => LazyList[A2]): LazyList[A2] =
+    foldRight(that)((a, acc) => cons(a, acc))
+
+  def flatMap[B](f: A => LazyList[B]): LazyList[B] =
+    foldRight(empty[B])((a, b) => f(a).append(b))
 
   def startsWith[B](s: LazyList[B]): Boolean = ???
 
