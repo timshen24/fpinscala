@@ -91,7 +91,7 @@ enum LazyList[+A]:
     foldRight(empty[B])((a, b) => f(a).append(b))
 
   def startsWith[B](s: LazyList[B]): Boolean = ???
-
+//    foldRight(true)((a, b) => )
 
 object LazyList:
   def cons[A](hd: => A, tl: => LazyList[A]): LazyList[A] = 
@@ -107,21 +107,30 @@ object LazyList:
 
   val ones: LazyList[Int] = LazyList.cons(1, ones)
 
-  def continually[A](a: A): LazyList[A] = ???
+  def continually[A](a: A): LazyList[A] = LazyList.cons(a, continually(a))
 
-  def from(n: Int): LazyList[Int] = ???
+  def from(n: Int): LazyList[Int] = LazyList.cons(n, from(n + 1))
 
-  lazy val fibs: LazyList[Int] = ???
+  lazy val fibs: LazyList[Int] = {
+    def go(current: Int, next: Int): LazyList[Int] =
+      cons(current, go(next, current + next))
+    go(0, 1)
+  }
 
-  def unfold[A, S](state: S)(f: S => Option[(A, S)]): LazyList[A] = ???
+  def unfold[A, S](state: S)(f: S => Option[(A, S)]): LazyList[A] =
+    f(state) match
+      case Some((a, s)) => cons(a, unfold(s)(f))
+      case _ => empty
 
-  lazy val fibsViaUnfold: LazyList[Int] = ???
+  lazy val fibsViaUnfold: LazyList[Int] =
+    unfold[Int, (Int, Int)]((0, 1)):
+      case (current, next) => Some((current, (next, current + next)))
 
-  def fromViaUnfold(n: Int): LazyList[Int] = ???
+  def fromViaUnfold(n: Int): LazyList[Int] = unfold[Int, Int](n)(n => Some(n, n + 1))
 
-  def continuallyViaUnfold[A](a: A): LazyList[A] = ???
+  def continuallyViaUnfold[A](a: A): LazyList[A] = unfold[A, Unit](())(Some(a, _))
 
-  lazy val onesViaUnfold: LazyList[Int] = ???
+  lazy val onesViaUnfold: LazyList[Int] = continuallyViaUnfold(1)
 
   @main def testFunc(): Unit = {
     println(LazyList(1, 2, 3).take(2).toListRecursive)
