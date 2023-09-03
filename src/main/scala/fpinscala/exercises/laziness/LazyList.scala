@@ -117,8 +117,38 @@ enum LazyList[+A]:
       case (_, Cons(h2, t2)) => Some(None -> Some(h2()), empty[A] -> t2())
       case _ => None
 
-  def startsWith[B](s: LazyList[B]): Boolean = ???
-//    foldRight(true)((a, b) => )
+  def startsWith[B](s: LazyList[B]): Boolean =
+    zipAll(s).takeWhile(_(1).isDefined).forAll((a1, a2) => a1 == a2)
+
+  def tails: LazyList[LazyList[A]] =
+    (unfold(this):
+      case l @ Cons(_, t) => Some(l, t())
+      case Empty => None).append(LazyList(Empty))
+
+  def hasSubsequence[A](l: LazyList[A]): Boolean =
+    tails.exists(_.startsWith(l))
+
+  def scanRight[B](init: B)(f: (A, => B) => B): LazyList[B] = {
+    // 这是错的，不能用unfold实现，因为它是从左到右展开的，不是从右到左展开
+    // tails.map(_.foldRight(z)(f))
+  /**
+   * The accumulator of our foldRight has type (B, LazyList[B])
+   * ─the first element of the tuple is the last computed B
+   * (or the initial value if we haven’t yet computed a B),
+   * and the second element of the tuple is the history of all computed B values.
+   * For each element in the original list, we call f with that element and the last computed B.
+   * We then output that new B paired with the result of consing that same B onto our accumulated outputs.
+   * When the fold completes, we discard the first element of the state and return just the accumulated lazy list.
+   * Note that we are careful to avoid forcing b0 until necessary,
+   * and since we use b0 twice, we cache it in a lazy val, ensuring it’s not evaluated more than once.
+   */
+    foldRight(init -> LazyList(init)): (a, b0) =>
+      // b0 is passed by-name and used in by-name args in f and cons. So use lazy val to ensure only one evaluation...
+      lazy val b1 = b0
+      val b2 = f(a, b1(0))
+      (b2, cons(b2, b1(1)))
+    ._2
+  }
 
 object LazyList:
   def cons[A](hd: => A, tl: => LazyList[A]): LazyList[A] = 
