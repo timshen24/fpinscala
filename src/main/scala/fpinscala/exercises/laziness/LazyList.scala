@@ -90,6 +90,33 @@ enum LazyList[+A]:
   def flatMap[B](f: A => LazyList[B]): LazyList[B] =
     foldRight(empty[B])((a, b) => f(a).append(b))
 
+  def mapViaUnfold[B](f: A => B): LazyList[B] =
+    unfold(this):
+      case Cons(h, t) => Some(f(h()), t())
+      case _ => None
+
+  def takeViaUnfold(num: Int): LazyList[A] =
+    unfold((this, num)):
+      case (Cons(h, t), n) if n > 0 => Some(h(), (t(), n - 1))
+      case _ => None
+
+  def takeWhileViaUnfold(f: A => Boolean): LazyList[A] =
+    unfold(this):
+      case Cons(h, t) if f(h()) => Some(h(), t())
+      case _ => None
+
+  def zipWith[B,C](that: LazyList[B])(f: (A, B) => C): LazyList[C] =
+    unfold((this, that)):
+      case (Cons(h1, t1), Cons(h2, t2)) => Some(f(h1(), h2()), (t1(), t2()))
+      case _ => None
+
+  def zipAll[B](that: LazyList[B]): LazyList[(Option[A], Option[B])] =
+    unfold((this, that)):
+      case (Cons(h1, t1), Cons(h2, t2)) => Some(Some(h1()) -> Some(h2()), t1() -> t2())
+      case (Cons(h1, t1), _) => Some(Some(h1()) -> None, t1() -> empty[B])
+      case (_, Cons(h2, t2)) => Some(None -> Some(h2()), empty[A] -> t2())
+      case _ => None
+
   def startsWith[B](s: LazyList[B]): Boolean = ???
 //    foldRight(true)((a, b) => )
 
