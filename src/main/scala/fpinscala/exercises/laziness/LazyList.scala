@@ -132,6 +132,9 @@ enum LazyList[+A]:
     // 这是错的，不能用unfold实现，因为它是从左到右展开的，不是从右到左展开
     // tails.map(_.foldRight(z)(f))
   /**
+   * scala> LazyList(1, 2, 3).scanRight(0)(_ + _).toList
+   * res0: List[Int] = List(6, 5, 3, 0)
+   * This example should be equivalent to the expression List(1 + 2 + 3 + 0, 2 + 3 + 0, 3 + 0, 0).
    * The accumulator of our foldRight has type (B, LazyList[B])
    * ─the first element of the tuple is the last computed B
    * (or the initial value if we haven’t yet computed a B),
@@ -145,8 +148,8 @@ enum LazyList[+A]:
     foldRight(init -> LazyList(init)): (a, b0) =>
       // b0 is passed by-name and used in by-name args in f and cons. So use lazy val to ensure only one evaluation...
       lazy val b1 = b0
-      val b2 = f(a, b1(0))
-      (b2, cons(b2, b1(1)))
+      val b2 = f(a, b1(0))  // b2 = 6, 5, 3, 0
+      (b2, cons(b2, b1(1))) // b2既要参与下一步f(a, b2)的运算，还要把b2作为中间结果报错到LazyList(init)中
     ._2
   }
 
