@@ -1,5 +1,7 @@
 package fpinscala.exercises.state
 
+import scala.annotation.tailrec
+
 
 trait RNG:
   def nextInt: (Int, RNG) // Should generate a random `Int`. We'll later define other functions in terms of `nextInt`.
@@ -26,17 +28,39 @@ object RNG:
       val (a, rng2) = s(rng)
       (f(a), rng2)
 
-  def nonNegativeInt(rng: RNG): (Int, RNG) = ???
+  def nonNegativeInt(rng: RNG): (Int, RNG) =
+    val (i: Int, rng2: RNG) = rng.nextInt
+    (if i == Int.MinValue then Int.MaxValue else i.abs, rng2)
 
-  def double(rng: RNG): (Double, RNG) = ???
+  def double(rng: RNG): (Double, RNG) =
+    val (i: Int, rng2: RNG) = nonNegativeInt(rng)
+    val j = if i == Int.MaxValue then (i - 1).toDouble else i.toDouble
+    (j / Int.MaxValue, rng2)
 
-  def intDouble(rng: RNG): ((Int,Double), RNG) = ???
+  def intDouble(rng: RNG): ((Int,Double), RNG) =
+    val (i, rng2) = nonNegativeInt(rng)
+    val (d, rng3) = double(rng2)
+    ((i, d), rng3)
 
-  def doubleInt(rng: RNG): ((Double,Int), RNG) = ???
+  def doubleInt(rng: RNG): ((Double,Int), RNG) =
+    val ((i,d), rng2) = intDouble(rng)
+    ((d, i), rng2)
 
-  def double3(rng: RNG): ((Double,Double,Double), RNG) = ???
+  def double3(rng: RNG): ((Double,Double,Double), RNG) =
+    val (d1, rng2) = double(rng)
+    val (d2, rng3) = double(rng2)
+    val (d3, rng4) = double(rng3)
+    ((d1, d2, d3), rng4)
 
-  def ints(count: Int)(rng: RNG): (List[Int], RNG) = ???
+  def ints(count: Int)(rng: RNG): (List[Int], RNG) =
+    @tailrec
+    def go(count: Int, r: RNG, xs: List[Int]): (List[Int], RNG) =
+      if count <= 0 then
+        (xs, r)
+      else
+        val (x, r1) = r.nextInt
+        go(count - 1, r1, x :: xs)
+    go(count, rng, List.empty[Int])
 
   def map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] = ???
 
