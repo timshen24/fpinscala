@@ -64,7 +64,9 @@ object Nonblocking:
         es => cb => p(es)(a => eval(es)(cb(f(a))))
 
       def flatMap[B](f: A => Par[B]): Par[B] =
-        es => cb => p(es)(a => f(a)(es)(cb))
+        // Note: fork isn't strictly necessary but lets us avoid stack overflows
+        // when chaining lots of flatMap calls - we use this stack safety in part 4
+        fork(es => cb => p(es)(a => f(a)(es)(cb)))
 
       def zip[B](b: Par[B]): Par[(A,B)] = map2(b)((_,_))
 
@@ -118,29 +120,30 @@ object Nonblocking:
 
     /* The code here is very similar. */
     def choiceN[A](p: Par[Int])(ps: List[Par[A]]): Par[A] =
-      ???
+      es => cb => p(es): i =>
+        eval(es)(ps(i % ps.length)(es)(cb))
 
     def choiceViaChoiceN[A](a: Par[Boolean])(ifTrue: Par[A], ifFalse: Par[A]): Par[A] =
-      ???
+      choiceN(a.map(b => if b then 0 else 1))(List(ifTrue, ifFalse))
 
     def choiceMap[K, V](p: Par[K])(ps: Map[K, Par[V]]): Par[V] =
-      ???
+      es => cb => p(es)(k => ps(k)(es)(cb))
 
     /* `chooser` is usually called `flatMap` or `bind`. */
     def chooser[A, B](p: Par[A])(f: A => Par[B]): Par[B] =
-      ???
+      p.flatMap(f)
 
     def choiceViaFlatMap[A](p: Par[Boolean])(f: Par[A], t: Par[A]): Par[A] =
-      ???
+      p.flatMap(b => if b then t else f)
 
     def choiceNViaFlatMap[A](p: Par[Int])(choices: List[Par[A]]): Par[A] =
-      ???
+      p.flatMap(i => choices(i))
 
     def join[A](p: Par[Par[A]]): Par[A] =
-      ???
+      p.flatMap(identity)
 
     def joinViaFlatMap[A](a: Par[Par[A]]): Par[A] =
-      ???
+      es => cb => a(es)(pa => eval(es)(pa(es)(cb)))
 
     def flatMapViaJoin[A,B](p: Par[A])(f: A => Par[B]): Par[B] =
-      ???
+      join(p.map(f))
