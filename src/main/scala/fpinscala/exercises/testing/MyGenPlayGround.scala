@@ -1,12 +1,8 @@
 package fpinscala.exercises.testing
 
-import fpinscala.exercises.state.{RNG, *}
-import fpinscala.exercises.parallelism.*
-import fpinscala.exercises.parallelism.Par.Par
-import MyGen.*
-import MyProp.*
-
-import java.util.concurrent.{ExecutorService, Executors}
+import fpinscala.exercises.state.*
+import fpinscala.exercises.testing.MyGen.*
+import fpinscala.exercises.testing.MyProp.*
 
 /*
 The library developed in this chapter goes through several iterations. This file is just the
@@ -45,6 +41,13 @@ object MyProp:
 
   import Result.*
   def forAll[A](as: MyGen[A])(f: A => Boolean): MyProp =
+    def randomLazyList[A](g: MyGen[A])(rng: RNG): LazyList[A] =
+      LazyList.unfold(rng)(rng => Some(g.run(rng)))
+
+    def buildMsg[A](s: A, e: Exception): String =
+      s"test case: $s\n" +
+        s"generated an exception: ${e.getMessage}\n" +
+        s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
     (n, rng) =>
       randomLazyList(as)(rng)
         .zip(LazyList.from(0))
@@ -60,13 +63,6 @@ object MyProp:
         .find(_.isFalsified)
         .getOrElse(Passed)
 
-  def randomLazyList[A](g: MyGen[A])(rng: RNG): LazyList[A] =
-    LazyList.unfold(rng)(rng => Some(g.run(rng)))
-
-  def buildMsg[A](s: A, e: Exception): String =
-    s"test case: $s\n" +
-      s"generated an exception: ${e.getMessage}\n" +
-      s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
 
   extension (self: MyProp) def &&(that: MyProp): MyProp =
     (n, rng) => self.tag("and-left")(n, rng) match
@@ -101,6 +97,7 @@ object MyProp:
 opaque type MyGen[+A] = State[RNG, A]
 
 object MyGen {
+  // 根据返回值知道MyGen其实是一个State，所以要得到一个MyGen，就干脆返回一个State对象就可以了？最方便的方式是用State.apply的方法
   def choose(start: Int, stopExclusive: Int): MyGen[Int] = State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start))
 
   def unit[A](a: => A): MyGen[A] = State(RNG.unit(a))
@@ -108,6 +105,7 @@ object MyGen {
   def boolean: MyGen[Boolean] = State(RNG.boolean)
 
   extension[A] (self: MyGen[A])
+    // sequence是亮点
     private def listOfN0(n: Int): MyGen[List[A]] = State.sequence(List.fill(n)(self))
 
   extension[A] (self: MyGen[A]) def flatMap[B](f: A => MyGen[B]): MyGen[B] =

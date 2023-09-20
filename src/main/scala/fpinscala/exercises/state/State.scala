@@ -43,7 +43,7 @@ object RNG:
 //    Use map to reimplement double in a more succinct way.
     map(nonNegativeInt)(i => i / (Int.MaxValue.toDouble + 1))(rng)
 
-  def intDouble(rng: RNG): ((Int,Double), RNG) =
+  def intDouble(rng: RNG): ((Int, Double), RNG) =
     val (i, rng2) = nonNegativeInt(rng)
     val (d, rng3) = double(rng2)
     ((i, d), rng3)
@@ -68,6 +68,7 @@ object RNG:
         go(count - 1, r1, x :: xs)
     go(count, rng, List.empty[Int])
 
+  // 如何解开ra和rb，注意到返回值也是一个Rand，因此可以天然提供一个rng => 给我们用，是形参、类变量外另一个可以利用的变量！
   def map2[A, B, C](ra: Rand[A], rb: Rand[B])(f: (A, B) => C): Rand[C] =
     rng =>
       val (a, rng1) = ra(rng)
