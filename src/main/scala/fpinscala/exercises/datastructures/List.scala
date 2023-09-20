@@ -60,29 +60,27 @@ object List: // `List` companion object. Contains functions for creating and wor
   def setHead[A](l: List[A], h: A): List[A] =
     l match
       case List.Nil => List(h)
-      case List.Cons(head, tail) => List.Cons(h, tail)
+      case List.Cons(_, tail) => List.Cons(h, tail)
 
   @tailrec
   def drop[A](l: List[A], n: Int): List[A] = {
     l match
-      case List.Nil => List.Nil
-      case List.Cons(head, tail) if n > 0 => drop(tail, n - 1)
+      case List.Cons(_, tail) if n > 0 => drop(tail, n - 1)
       case _ => l
   }
 
   @tailrec
   def dropWhile[A](l: List[A], f: A => Boolean): List[A] = {
     l match
-      case List.Nil => List.Nil
       case List.Cons(head, tail) if f(head) => dropWhile(tail, f)
       case _ => l
   }
 
   def init[A](l: List[A]): List[A] = {
     l match
-      case List.Nil => Nil
-      case List.Cons(head, Nil) => Nil
-      case List.Cons(head, tail) => Cons(head, init(tail))
+      case Nil => sys.error("init on Nil")
+      case Cons(head, Nil) => Nil
+      case Cons(head, tail) => Cons(head, init(tail))
   }
 
   def length[A](l: List[A]): Int = foldRight(l, 0, (_, acc) => acc + 1)
@@ -90,8 +88,8 @@ object List: // `List` companion object. Contains functions for creating and wor
   @tailrec
   def foldLeft[A, B](l: List[A], acc: B, f: (B, A) => B): B = {
     l match
-      case List.Nil => acc
-      case List.Cons(head, tail) => foldLeft(tail, f(acc, head), f)
+      case Nil => acc
+      case Cons(head, tail) => foldLeft(tail, f(acc, head), f)
   }
 
   def sumViaFoldLeft(ns: List[Int]): Int = foldLeft(ns, 0, _ + _)
@@ -100,15 +98,12 @@ object List: // `List` companion object. Contains functions for creating and wor
 
   def lengthViaFoldLeft[A](l: List[A]): Int = foldLeft(l, 0, (acc, _) => acc + 1)
 
-  def reverse[A](l: List[A]): List[A] = foldLeft(l, Nil, (acc: List[A], a: A) => Cons(a, acc))
+  def reverse[A](l: List[A]): List[A] = foldLeft(l, Nil: List[A], (acc, a) => Cons(a, acc))
 
   @main def printReverse(): Unit =
     println(reverse(List(1, 2, 3, 4, 5)))
 
   def foldRightByFoldLeft[A, B](as: List[A], acc: B, f: (A, B) => B): B = {
-//    as match
-//      case Nil => acc
-//      case Cons(x, xs) => foldRightByFoldLeft(xs, f(x, acc), f)
     foldLeft(reverse(as), acc, (b, a) => f(a, b))
   }
 
@@ -144,7 +139,7 @@ object List: // `List` companion object. Contains functions for creating and wor
   }
 
   def flatMap[A, B](as: List[A], f: A => List[B]): List[B] = {
-    foldRight(as, Nil: List[B], (h, t) => foldRight(f(h), t, Cons(_, _)))
+    foldRight(as, Nil: List[B], (a, acc) => foldRight(f(a), acc, Cons(_, _)))
   }
 
   @main def printFlatMap =
