@@ -79,7 +79,7 @@ object List: // `List` companion object. Contains functions for creating and wor
   def init[A](l: List[A]): List[A] = {
     l match
       case Nil => sys.error("init on Nil")
-      case Cons(head, Nil) => Nil
+      case Cons(_, Nil) => Nil
       case Cons(head, tail) => Cons(head, init(tail))
   }
 
