@@ -96,6 +96,8 @@ object MyProp:
 
 opaque type MyGen[+A] = State[RNG, A]
 
+opaque type MySGen[/*+*/A] = Int => MyGen[A]
+
 object MyGen {
   // 根据返回值知道MyGen其实是一个State，所以要得到一个MyGen，就干脆返回一个State对象就可以了？最方便的方式是用State.apply的方法
   def choose(start: Int, stopExclusive: Int): MyGen[Int] = State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start))
@@ -106,7 +108,10 @@ object MyGen {
 
   extension[A] (self: MyGen[A])
     // sequence是亮点
-    private def listOfN0(n: Int): MyGen[List[A]] = State.sequence(List.fill(n)(self))
+     def listOfN0(n: Int): MyGen[List[A]] = State.sequence(List.fill(n)(self))
+
+  extension[A] (self: MyGen[A]) def map[B](f: A => B): MyGen[B] =
+    State.map(self)(f)
 
   extension[A] (self: MyGen[A]) def flatMap[B](f: A => MyGen[B]): MyGen[B] =
     State.flatMap(self)(f)
@@ -122,4 +127,18 @@ object MyGen {
     val (gen2, p2) = g2
     val g1Threshold = p1 / (p1 + p2)
     State(RNG.double).flatMap(d => if d <= g1Threshold then gen1 else gen2)
+
+  extension [A](self: MyGen[A]) def unsized: MySGen[A] = _ => self
+}
+
+object MySGen {
+  import MyGen.*
+  extension [A](self: MySGen[A]) def map[B](f: A => B): MySGen[B] = n =>
+    self(n).map(f)
+
+  extension [A](self: MySGen[A]) def flatMap[B](f: A => MySGen[B]): MySGen[B] = n =>
+    self(n).flatMap(a => f(a)(n))
+
+  extension [A](self: MyGen[A]) def list: MySGen[List[A]] = n =>
+    self.listOfN0(n)
 }
