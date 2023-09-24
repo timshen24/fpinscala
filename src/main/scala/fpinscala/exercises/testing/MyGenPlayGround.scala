@@ -14,7 +14,7 @@ object TestCases:
   extension (x: TestCases) def toInt: Int = x
   def fromInt(x: Int): TestCases = x
 
-opaque type MyProp = (TestCases, RNG) => Result
+opaque type MyProp = (MaxSize, TestCases, RNG) => Result
 
 opaque type FailedCase = String
 
@@ -22,6 +22,12 @@ object FailedCase:
   extension (f: FailedCase) def string: String = f
 
   def fromString(s: String): FailedCase = s
+
+opaque type MaxSize = Int
+
+object MaxSize:
+  extension (x: MaxSize) def toInt: Int = x
+  def fromInt(x: Int): MaxSize = x
 
 enum Result:
   case Passed
@@ -48,7 +54,7 @@ object MyProp:
       s"test case: $s\n" +
         s"generated an exception: ${e.getMessage}\n" +
         s"stack trace:\n ${e.getStackTrace.mkString("\n")}"
-    (n, rng) =>
+    (max, n, rng) =>
       randomLazyList(as)(rng)
         .zip(LazyList.from(0))
         .take(n)
@@ -63,26 +69,39 @@ object MyProp:
         .find(_.isFalsified)
         .getOrElse(Passed)
 
+  def forAllNew[A](g: MySGen[A])(f: A => Boolean): MyProp =
+    (max, n, rng) =>
+      val casesPerSize = (n.toInt - 1) / max.toInt + 1
+      val props: LazyList[MyProp] =
+        LazyList.from(0)
+          .take((n.toInt min max.toInt) + 1)
+          .map(i => forAll(g(i))(f))
+      val prop: MyProp =
+        props.map[MyProp](p => (max, n, rng) =>
+            p(max, casesPerSize, rng))
+          .toList
+          .reduce(_ && _)
+      prop(max, n, rng)
 
   extension (self: MyProp) def &&(that: MyProp): MyProp =
-    (n, rng) => self.tag("and-left")(n, rng) match
-      case Result.Passed => that.tag("and-right")(n, rng)
+    (max, n, rng) => self.tag("and-left")(max, n, rng) match
+      case Result.Passed => that.tag("and-right")(max, n, rng)
       case x => x
 
   extension (self: MyProp) def ||(that: MyProp): MyProp =
-    (n, rng) => self.tag("or-left")(n, rng) match
-      case Result.Falsified(failure, _) => that.tag(failure)(n, rng)
+    (max, n, rng) => self.tag("or-left")(max, n, rng) match
+      case Result.Falsified(failure, _) => that.tag(failure)(max, n, rng)
       case x => x
 
   extension (self: MyProp)
     def run(): Unit =
-      self(100, RNG.Simple(System.currentTimeMillis)) match
+      self(100, 100, RNG.Simple(System.currentTimeMillis)) match
         case Result.Passed => println(s"+ OK, passed 100 test.")
         case Result.Falsified(failure, successes) => println(s"! Falsified after $successes passed tests:\n $failure")
 
   extension (self: MyProp)
     def tag(msg: String): MyProp =
-      (n, rng) => self(n, rng) match
+      (max, n, rng) => self(max, n, rng) match
         case Result.Falsified(failure, successes) => Falsified(FailedCase.fromString(s"$msg($failure)"), successes)
         case x => x
 
