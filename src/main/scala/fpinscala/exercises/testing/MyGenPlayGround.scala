@@ -94,16 +94,28 @@ object MyProp:
       case x => x
 
   extension (self: MyProp)
-    def run(): Unit =
-      self(100, 100, RNG.Simple(System.currentTimeMillis)) match
-        case Result.Passed => println(s"+ OK, passed 100 test.")
-        case Result.Falsified(failure, successes) => println(s"! Falsified after $successes passed tests:\n $failure")
-
-  extension (self: MyProp)
     def tag(msg: String): MyProp =
       (max, n, rng) => self(max, n, rng) match
         case Result.Falsified(failure, successes) => Falsified(FailedCase.fromString(s"$msg($failure)"), successes)
         case x => x
+
+  extension (self: MyProp)
+    def check(
+               maxSize: MaxSize = 100,
+               testCases: TestCases = 100,
+               rng: RNG = RNG.Simple(System.currentTimeMillis)
+             ): Result =
+      self(maxSize, testCases, rng)
+
+  extension (self: MyProp)
+    def run(maxSize: MaxSize = 100,
+            testCases: TestCases = 100,
+            rng: RNG = RNG.Simple(System.currentTimeMillis)): Unit =
+      self(maxSize, testCases, rng) match
+        case Falsified(msg, n) =>
+          println(s"! Falsified after $n passed tests:\n $msg")
+        case Passed =>
+          println(s"+ OK, passed $testCases tests.")
 
   @main def Main: Unit =
     val p: MyProp = MyProp.forAll(MyGen.boolean)(x => x == x)
@@ -111,6 +123,12 @@ object MyProp:
     (p && q).run()
     (q && p).run()
     (q || q).run()
+
+    val smallInt = MyGen.choose(-10, 10)
+    val maxProp = MyProp.forAllNew(smallInt.nonEmptyList): ns =>
+      val max = ns.max
+      ns.forall(_ <= max)
+    maxProp.run()
 
 
 opaque type MyGen[+A] = State[RNG, A]
@@ -135,6 +153,9 @@ object MyGen {
   extension[A] (self: MyGen[A]) def flatMap[B](f: A => MyGen[B]): MyGen[B] =
     State.flatMap(self)(f)
 
+  extension[A] (self: MyGen[A]) def listOfN(size: Int): MyGen[List[A]] =
+    self.listOfN0(size)
+
   extension[A] (self: MyGen[A]) def listOfN(size: MyGen[Int]): MyGen[List[A]] =
     size.flatMap(self.listOfN0)
 
@@ -147,7 +168,13 @@ object MyGen {
     val g1Threshold = p1 / (p1 + p2)
     State(RNG.double).flatMap(d => if d <= g1Threshold then gen1 else gen2)
 
-  extension [A](self: MyGen[A]) def unsized: MySGen[A] = _ => self
+  extension[A] (self: MyGen[A]) def unsized: MySGen[A] = _ => self
+
+  extension[A] (self: MyGen[A]) def list: MySGen[List[A]] = n =>
+    self.listOfN0(n)
+
+  extension[A] (self: MyGen[A]) def nonEmptyList: MySGen[List[A]] =
+    n => self.listOfN(n.max(1))
 }
 
 object MySGen {
@@ -157,7 +184,4 @@ object MySGen {
 
   extension [A](self: MySGen[A]) def flatMap[B](f: A => MySGen[B]): MySGen[B] = n =>
     self(n).flatMap(a => f(a)(n))
-
-  extension [A](self: MyGen[A]) def list: MySGen[List[A]] = n =>
-    self.listOfN0(n)
 }
