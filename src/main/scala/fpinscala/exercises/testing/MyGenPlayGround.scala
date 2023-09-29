@@ -32,10 +32,11 @@ object MaxSize:
 enum Result:
   case Passed
   case Falsified(failure: FailedCase, successes: SuccessCount)
+  case Proved
 
   def isFalsified: Boolean = this match
-    case Passed => false
     case Falsified(_, _) => true
+    case _ => false
 
 
 //  def &&(that: MyProp): MyProp = new MyProp {
@@ -83,9 +84,12 @@ object MyProp:
           .reduce(_ && _)
       prop(max, n, rng)
 
+  def verify(p: => Boolean): MyProp =
+    (_, _, _) => if p then Passed else Falsified("()", 0)
+
   extension (self: MyProp) def &&(that: MyProp): MyProp =
     (max, n, rng) => self.tag("and-left")(max, n, rng) match
-      case Result.Passed => that.tag("and-right")(max, n, rng)
+      case Result.Passed | Result.Proved => that.tag("and-right")(max, n, rng)
       case x => x
 
   extension (self: MyProp) def ||(that: MyProp): MyProp =
@@ -116,6 +120,8 @@ object MyProp:
           println(s"! Falsified after $n passed tests:\n $msg")
         case Passed =>
           println(s"+ OK, passed $testCases tests.")
+        case Proved =>
+          println(s"+ OK, proved property.")
 
   @main def Main: Unit =
     val p: MyProp = MyProp.forAll(MyGen.boolean)(x => x == x)
@@ -130,8 +136,15 @@ object MyProp:
       ns.forall(_ <= max)
     maxProp.run()
 
+    val sortedProp = MyProp.forAllNew(smallInt.list): l =>
+      val ls = l.sorted
+      val ordered = l.isEmpty || ls.zip(ls.tail).forall((a, b) => a <= b)
+      ordered && l.forall(ls.contains) && ls.forall(l.contains)
+    sortedProp.run()
 
-opaque type MyGen[+A] = State[RNG, A]
+//opaque type MyGen[+A] = State[RNG, A]
+
+case class MyGen[+A](sample: State[RNG, A], exhaustive: LazyList[Option[A]])
 
 opaque type MySGen[/*+*/A] = Int => MyGen[A]
 
