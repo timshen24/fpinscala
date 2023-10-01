@@ -29,10 +29,11 @@ object MaxSize:
   extension (x: MaxSize) def toInt: Int = x
   def fromInt(x: Int): MaxSize = x
 
+enum Status:
+  case Proven, Unfalsified
 enum Result:
-  case Passed
+  case Passed(status: Status, testCases: TestCases)
   case Falsified(failure: FailedCase, successes: SuccessCount)
-  case Proved
 
   def isFalsified: Boolean = this match
     case Falsified(_, _) => true
@@ -84,6 +85,9 @@ object MyProp:
           .reduce(_ && _)
       prop(max, n, rng)
 
+  /**
+   * 专门给hardcode的example用的方法，比如1+1是否等于2，而非forall型的方法，所以不用指定MaxCase等等
+   */
   def verify(p: => Boolean): MyProp =
     (_, _, _) => if p then Passed else Falsified("()", 0)
 
@@ -144,27 +148,72 @@ object MyProp:
 
 //opaque type MyGen[+A] = State[RNG, A]
 
-case class MyGen[+A](sample: State[RNG, A], exhaustive: LazyList[Option[A]])
+case class MyGen[+A](sample: State[RNG, A], exhaustive: LazyList[Option[A]]) {
+  def map[B](f: A => B): MyGen[B] =
+    MyGen(sample.map(f), exhaustive.map(_.map(f)))
+
+  def map2[B, C](g: MyGen[B])(f: (A, B) => C): MyGen[C] =
+    MyGen(sample.map2(g.sample)(f), map2LayzyList(exhaustive, g.exhaustive)(map2Option(_, _)(f))  )
+
+  def flatMap[B](f: A => MyGen[B]): MyGen[B] =
+    MyGen(
+      sample.flatMap(a => f(a).sample),
+      exhaustive.flatMap:
+        case None => unbounded
+        case Some(a) => f(a).exhaustive
+    )
+
+  def unit[A](a: => A): MyGen[A] = MyGen(State.unit(a), bounded(LazyList(a)))
+
+  def boolean: MyGen[Boolean] = MyGen(State(RNG.boolean), bounded(LazyList(true, false)))
+
+  // 根据返回值知道MyGen其实是一个State，所以要得到一个MyGen，就干脆返回一个State对象就可以了？最方便的方式是用State.apply的方法
+  def choose(start: Int, stopExclusive: Int): MyGen[Int] = MyGen(
+    State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start)),
+    bounded(LazyList.from(start).take(stopExclusive - start))
+  )
+
+  /* This implementation is rather tricky, but almost impossible to get wrong
+   * if you follow the types. It relies on several helper functions (see below).
+   */
+  def listOfN[A](n: Int, g: MyGen[A]): MyGen[List[A]] =
+    MyGen(
+      State.sequence(List.fill(n)(g.sample)),
+      cartesian(LazyList.continually(g.exhaustive).take(n)).map(l => sequenceOption(l.toList))
+    )
+
+  /* `cartesian` generates all possible combinations of a `LazyList[LazyList[A]]`. For instance:
+   *
+   *    cartesian(LazyList(LazyList(1,2), LazyList(3), LazyList(4,5))) ==
+   *    LazyList(LazyList(1,3,4), LazyList(1,3,5), LazyList(2,3,4), LazyList(2,3,5))
+  */
+  def cartesian[A](s: LazyList[LazyList[A]]): LazyList[LazyList[A]] =
+    s.foldRight(LazyList(LazyList[A]()))((hs, ts) => map2LazyList(hs, ts)(LazyList.cons(_, _)))
+
+  /* This is not the same as `zipWith`, a function we've implemented before.
+   * We are generating all (A,B) combinations and using each to produce a `C`.
+   * This implementation desugars to sa.flatMap(a => sb.map(b => f(a,b))).
+   */
+  def map2LazyList[A, B, C](sa: LazyList[A], sb: => LazyList[B])(f: (A, => B) => C): LazyList[C] =
+    for {
+      a <- sa
+      b <- sb
+    } yield f(a, b)
+}
 
 opaque type MySGen[/*+*/A] = Int => MyGen[A]
 
-object MyGen {
-  // 根据返回值知道MyGen其实是一个State，所以要得到一个MyGen，就干脆返回一个State对象就可以了？最方便的方式是用State.apply的方法
-  def choose(start: Int, stopExclusive: Int): MyGen[Int] = State(RNG.nonNegativeInt).map(n => start + n % (stopExclusive - start))
+object MyGen:
+  type Domain[+A] = LazyList[Option[A]]
 
-  def unit[A](a: => A): MyGen[A] = State(RNG.unit(a))
+  def bounded[A](a: LazyList[A]): Domain[A] = a.map(Some(_))
 
-  def boolean: MyGen[Boolean] = State(RNG.boolean)
+  def unbounded: Domain[Nothing] = LazyList(None)
 
-  extension[A] (self: MyGen[A])
-    // sequence是亮点
-     def listOfN0(n: Int): MyGen[List[A]] = State.sequence(List.fill(n)(self))
 
-  extension[A] (self: MyGen[A]) def map[B](f: A => B): MyGen[B] =
-    State.map(self)(f)
 
-  extension[A] (self: MyGen[A]) def flatMap[B](f: A => MyGen[B]): MyGen[B] =
-    State.flatMap(self)(f)
+
+
 
   extension[A] (self: MyGen[A]) def listOfN(size: Int): MyGen[List[A]] =
     self.listOfN0(size)
@@ -188,7 +237,6 @@ object MyGen {
 
   extension[A] (self: MyGen[A]) def nonEmptyList: MySGen[List[A]] =
     n => self.listOfN(n.max(1))
-}
 
 object MySGen {
   import MyGen.*
