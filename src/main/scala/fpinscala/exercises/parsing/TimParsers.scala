@@ -2,6 +2,9 @@ package fpinscala.exercises.parsing
 
 import fpinscala.answers.testing.*
 
+import java.util.regex.*
+import scala.util.matching.Regex
+
 trait TimParsers[TimParser[+_]]:
   self => // so inner classes may call methods of trait
   def char(c: Char): TimParser[Char] =
@@ -12,7 +15,11 @@ trait TimParsers[TimParser[+_]]:
   def succeed[A](a: A): TimParser[A] =
     string("").map(_ => a)
 
+  def fail(msg: String): TimParser[Nothing]
+
   def defer[A](p: => TimParser[A]): TimParser[A]
+
+  def regex(r: Regex): TimParser[String]
 
   extension [A](p: TimParser[A])
 
@@ -27,21 +34,46 @@ trait TimParsers[TimParser[+_]]:
 
     def many: TimParser[List[A]] = p.map2(p.many)(_ :: _) | succeed(Nil)
 
-    def map[B](f: A => B): TimParser[B]
+    def map[B](f: A => B): TimParser[B] =
+      p.flatMap(succeed(f))
 
     def slice: TimParser[String]
 
-    def product[B](p2: TimParser[B]): TimParser[(A, B)]
+    def product[B](p2: TimParser[B]): TimParser[(A, B)] =
+      for
+        a <- p
+        b <- p2
+      yield (a, b)
 
     def **[B](p2: TimParser[B]): TimParser[(A, B)] = product(p2)
 
-    def map2[B, C](p2: => TimParser[B])(f: (A, B) => C): TimParser[C] = (p ** p2).map((a, b) => f(a, b))
+    def map2[B, C](p2: => TimParser[B])(f: (A, B) => C): TimParser[C] =
+      for
+        a <- p
+        b <- p2
+      yield f(a, b)
 
     def many1: TimParser[List[A]] = (p ** p.many).map(_ :: _)
 
     infix def ~=[B, C](p1: TimParser[((A, B), C)], p2: TimParser[(A, (B, C))]) =
       import Laws.*
       p1.map(unbiasL) == p2.map(unbiasR)
+
+    def flatMap[B](f: A => TimParser[B]): TimParser[B]
+
+  val nonNegativeInt: TimParser[Int] =
+    for
+      nString <- regex("[0-9]+".r)
+      n <- nString.toIntOption match
+        case Some(n) => succeed(n)
+        case None => fail("expected an integer")
+    yield n
+
+  val nConsecutiveAs: TimParser[Int] =
+    for
+      n <- nonNegativeInt
+      _ <- char('a').listOfN(n)
+    yield n
 
   def playground(): Unit =
     char('a').many.slice.map(_.length) ** char('b').many1.slice.map(_.length)
