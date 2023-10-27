@@ -1,8 +1,8 @@
 package fpinscala.exercises.parsing
 
 import fpinscala.answers.testing.*
+import fpinscala.answers.testing.Prop.forAll
 
-import java.util.regex.*
 import scala.util.matching.Regex
 
 trait TimParsers[TimParser[+_]]:
@@ -35,7 +35,7 @@ trait TimParsers[TimParser[+_]]:
     def many: TimParser[List[A]] = p.map2(p.many)(_ :: _) | succeed(Nil)
 
     def map[B](f: A => B): TimParser[B] =
-      p.flatMap(succeed(f))
+      p.flatMap(a => succeed(f(a)))
 
     def slice: TimParser[String]
 
@@ -60,6 +60,32 @@ trait TimParsers[TimParser[+_]]:
       p1.map(unbiasL) == p2.map(unbiasR)
 
     def flatMap[B](f: A => TimParser[B]): TimParser[B]
+
+    def label(msg: String): TimParser[A]
+
+    def scope(msg: String): TimParser[A]
+
+    def attempt: TimParser[A]
+
+    /** In the event of an error, returns the error that occurred after consuming the most number of characters. */
+    def furthest: TimParser[A]
+
+    /** In the event of an error, returns the error that occurred most recently. */
+    def latest: TimParser[A]
+
+  case class ErrorLocation(input: String, offset: Int = 0):
+    lazy val line = input.slice(0, offset + 1).count(_ == '\n') + 1
+    lazy val col = input.slice(0, offset + 1).lastIndexOf('\n') match
+      case -1 => offset + 1
+      case lineStart => offset - lineStart
+
+  def errorLocation(e: TimParseError): Location
+
+  def errorMessage(e: TimParseError): String
+
+  case class TimParseError(stack: List[(ErrorLocation, String)])
+
+  val spaces: TimParser[List[String]] = string(" ").many
 
   val nonNegativeInt: TimParser[Int] =
     for
@@ -93,6 +119,13 @@ trait TimParsers[TimParser[+_]]:
 
     def productLaw[A, B, C](p1: TimParser[A], p2: TimParser[B], p3: TimParser[C])(in: Gen[String]): Prop =
       Prop.forAll(in)(s => ((p1 ** p2) ** p3).map(unbiasL).run(s) == (p1 ** (p2 ** p3)).map(unbiasR).run(s))
+
+    def labelLaw[A](p: TimParser[A], inputs: SGen[String]): Prop =
+      forAll(inputs ** Gen.string):
+        case (input, msg) =>
+          p.label(msg).run(input) match
+            case Left(e) => errorMessage(e) == msg
+            case _ => true
 
 case class TimLocation(input: String, offset: Int = 0):
 
