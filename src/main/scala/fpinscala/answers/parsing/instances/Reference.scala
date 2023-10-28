@@ -5,7 +5,7 @@ import scala.util.matching.Regex
 
 import Reference.Result.{Success, Failure}
 
-object Reference extends Parsers[Reference.Parser]:
+object Reference extends Parsers[Reference.Parser] {
 
   /** A parser is a kind of state action that can fail. */
   // https://github.com/lampepfl/dotty/issues/13761
@@ -119,3 +119,4 @@ object Reference extends Parsers[Reference.Parser]:
     def label(msg: String): Parser[A] =
       l => p(l).mapError(_.label(msg))
 
+}

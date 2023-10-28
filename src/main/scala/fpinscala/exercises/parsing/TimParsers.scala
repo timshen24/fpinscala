@@ -79,11 +79,9 @@ trait TimParsers[TimParser[+_]]:
       case -1 => offset + 1
       case lineStart => offset - lineStart
 
-  def errorLocation(e: TimParseError): Location
+  def errorLocation(e: TimParseError): TimLocation
 
   def errorMessage(e: TimParseError): String
-
-  case class TimParseError(stack: List[(ErrorLocation, String)])
 
   val spaces: TimParser[List[String]] = string(" ").many
 
