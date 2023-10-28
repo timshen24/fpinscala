@@ -32,5 +32,11 @@ object TimParsers extends TimParsers[TimParsers.TimParser]:
       else
         Failure(l.advanceBy(i).toError(s"'$w'"), i != 0)
 
+  /* note, regex matching is 'all-or-nothing':
+   * failures are uncommitted */
+  def regex(r: Regex): TimParser[String] =
+    l => r.findPrefixOf(l.remaining) match
+      case None => Failure(l.toError(s"regex $r"), false)
+      case Some(m) => Success(m, m.length)
 
 
