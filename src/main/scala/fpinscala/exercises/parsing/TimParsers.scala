@@ -146,13 +146,28 @@ case class TimLocation(input: String, offset: Int = 0):
 
 case class TimParseError(stack: List[(TimLocation,String)] = List(),
                       otherFailures: List[TimParseError] = List()):
-  def push(loc: TimLocation, msg: String): TimParseError = ???
+  def push(loc: TimLocation, msg: String): TimParseError = copy(stack = (loc, msg) :: stack)
 
-  def label(s: String): TimParseError = ???
+  def latest: Option[(TimLocation, String)] =
+    stack.lastOption
+
+  def latestLoc: Option[TimLocation] =
+    latest map (_._1)
+
+  def label(s: String): TimParseError = TimParseError(latestLoc.map((_, s)).toList)
 
 class TimExamples[TimParser[+_]](P: TimParsers[TimParser]):
   import P.*
 
-  val nonNegativeInt: TimParser[Int] = ???
+  val nonNegativeInt: TimParser[Int] =
+    for
+      nString <- regex("[0-9]+".r)
+      n <- nString.toIntOption match
+        case Some(n) => succeed(n)
+        case None => fail("expected an integer")
+    yield n
+
+  val nonNegativeIntOpaque: TimParser[Int] =
+    nonNegativeInt.label("non-negative integer")
 
   val nConsecutiveAs: TimParser[Int] = ???
