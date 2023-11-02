@@ -16,19 +16,37 @@ object Monoid:
     def combine(a1: List[A], a2: List[A]) = a1 ++ a2
     val empty = Nil
 
-  lazy val intAddition: Monoid[Int] = ???
+  lazy val intAddition: Monoid[Int] = new:
+    def combine(a1: Int, a2: Int) = a1 + a2
+    val empty = 0
 
-  lazy val intMultiplication: Monoid[Int] = ???
+  lazy val intMultiplication: Monoid[Int] = new:
+    def combine(a1: Int, a2: Int) = a1 * a2
+    val empty = 1
 
-  lazy val booleanOr: Monoid[Boolean] = ???
+  lazy val booleanOr: Monoid[Boolean] = new:
+    def combine(a1: Boolean, a2: Boolean) = a1 || a2
+    val empty = false
 
-  lazy val booleanAnd: Monoid[Boolean] = ???
+  lazy val booleanAnd: Monoid[Boolean] = new:
+    def combine(a1: Boolean, a2: Boolean) = a1 && a2
+    val empty = true
 
-  def optionMonoid[A]: Monoid[Option[A]] = ???
+  def firstOptionMonoid[A]: Monoid[Option[A]] = new:
+    def combine(x: Option[A], y: Option[A]) = x orElse y
+    val empty = None
+
+  def lastOptionMonoid[A]: Monoid[Option[A]] = new:
+    def combine(x: Option[A], y: Option[A]) = y orElse x
+    val empty = None
 
   def dual[A](m: Monoid[A]): Monoid[A] = new:
-    def combine(x: A, y: A): A = m.combine(y, x)
+    def combine(x: A, y: A) = m.combine(y, x)
     val empty = m.empty
+
+  def optionMonoid[A](f: (A, A) => A): Monoid[Option[A]] = new:
+    def combine(x: Option[A], y: Option[A]) = x.flatMap(xx => y.map(yy => f(xx, yy)))
+    val empty = None
 
   def endoMonoid[A]: Monoid[A => A] = ???
 
