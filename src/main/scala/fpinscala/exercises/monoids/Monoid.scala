@@ -40,6 +40,7 @@ object Monoid:
     def combine(x: Option[A], y: Option[A]) = y orElse x
     val empty = None
 
+  // dual（对偶）
   def dual[A](m: Monoid[A]): Monoid[A] = new:
     def combine(x: A, y: A) = m.combine(y, x)
     val empty = m.empty
@@ -48,12 +49,24 @@ object Monoid:
     def combine(x: Option[A], y: Option[A]) = x.flatMap(xx => y.map(yy => f(xx, yy)))
     val empty = None
 
-  def endoMonoid[A]: Monoid[A => A] = ???
+  def endoMonoid[A]: Monoid[A => A] = new:
+    def combine(f: A => A, g: A => A) = f andThen g
+    val empty = identity
 
-  import fpinscala.exercises.testing.{Prop, Gen}
-  // import Gen.`**`
+  import fpinscala.answers.testing.{Prop, Gen}
+  import Gen.`**`
 
-  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop = ???
+  def monoidLaws[A](m: Monoid[A], gen: Gen[A]): Prop =
+    val associativity = Prop
+      .forAll(gen ** gen ** gen):
+        case a ** b ** c =>
+          m.combine(a, m.combine(b, c)) == m.combine(m.combine(a, b), c)
+      .tag("associativity")
+    val identity = Prop
+      .forAll(gen): a =>
+        m.combine(a, m.empty) == a && m.combine(m.empty, a) == a
+      .tag("identity")
+    associativity && identity
 
   def combineAll[A](as: List[A], m: Monoid[A]): A =
     ???

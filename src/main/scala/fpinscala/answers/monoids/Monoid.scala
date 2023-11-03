@@ -41,7 +41,7 @@ object Monoid:
     def combine(x: Option[A], y: Option[A]) = x orElse y
     val empty = None
 
-  // We can get the dual of any monoid just by flipping the `combine`.
+  // We can get the dual（对偶） of any monoid just by flipping the `combine`.
   def dual[A](m: Monoid[A]): Monoid[A] = new:
     def combine(x: A, y: A): A = m.combine(y, x)
     val empty = m.empty
